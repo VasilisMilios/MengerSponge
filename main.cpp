@@ -10,11 +10,12 @@
 
 #include <iostream>
 
-//Controls: W(Wireframe Mode), S(Cube Mode)
+//Controls: W(Wireframe Mode), S(Cube Mode), R(Reverse Fractal), N(Normal Fractal)
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 void generate(glm::mat4* previousLevel, glm::mat4* nextLevel, int iterationLevel);
+void reverseGenerate(glm::mat4* previousLevel, glm::mat4* nextLevel, int iterationLevel);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -35,6 +36,10 @@ glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 //number of iterations
 int iterations = 0;
+
+//reverse fractal
+bool reverse = false;
+
 
 int main()
 {
@@ -59,7 +64,7 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -137,23 +142,30 @@ int main()
     glEnableVertexAttribArray(1);
 
     //we precalculate the iterations of the fractal and we save thems in arrays depending on the level of iteration
-    glm::mat4* level0;
-    glm::mat4* level1;
-    glm::mat4* level2;
-    glm::mat4* level3;
-    glm::mat4* level4;
-
-    level0 = new glm::mat4[1];
-    level1 = new glm::mat4[20];
-    level2 = new glm::mat4[400];
-    level3 = new glm::mat4[8000];
-    level4 = new glm::mat4[160000];
+    glm::mat4* level0 = new glm::mat4[1];
+    glm::mat4* level1 = new glm::mat4[20];
+    glm::mat4* level2 = new glm::mat4[400];
+    glm::mat4* level3 = new glm::mat4[8000];
+    glm::mat4* level4 = new glm::mat4[160000];
 
     level0[0] = glm::mat4(1.0f);
     generate(level0, level1, 1);
     generate(level1, level2, 2);
     generate(level2, level3, 3);
     generate(level3, level4, 4);
+
+    //generate reverse fractals
+    glm::mat4* rlevel1 = new glm::mat4[8];
+    glm::mat4* rlevel2 = new glm::mat4[64];
+    glm::mat4* rlevel3 = new glm::mat4[512];
+    glm::mat4* rlevel4 = new glm::mat4[32768];
+
+    reverseGenerate(level0, rlevel1, 1);
+    reverseGenerate(rlevel1, rlevel2, 2);
+    reverseGenerate(rlevel2, rlevel3, 3);
+    reverseGenerate(rlevel3, rlevel4, 4);
+
+
 
     // render loop
     while (!glfwWindowShouldClose(window))
@@ -201,36 +213,73 @@ int main()
 
         //choosing which array to use depending on the iteration
         glm::mat4* models;
-        switch (iterations) {
-        case 0:
-            models = level0;
-            break;
-        case 1:
-            models = level1;
-            break;
-        case 2:
-            models = level2;
-            break;
-        case 3:
-            models = level3;
-            break;
-        case 4:
-            models = level4;
-            break;
-        case 5:
-            models = level4;
-            break;
-        default:
-            models = level0;
-        }
-
-        //rendering the cubes
-        for (unsigned int i = 0; i < pow(20, iterations); i++)
+        if (!reverse)
         {
-            model = *(models + i);
-            lightingShader.setMat4("model", model);
-            glBindVertexArray(cubeVAO);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+            switch (iterations) {
+            case 0:
+                models = level0;
+                break;
+            case 1:
+                models = level1;
+                break;
+            case 2:
+                models = level2;
+                break;
+            case 3:
+                models = level3;
+                break;
+            case 4:
+                models = level4;
+                break;
+            case 5:
+                models = level4;
+                break;
+            default:
+                models = level0;
+            }
+
+            //rendering the cubes
+            for (unsigned int i = 0; i < pow(20, iterations); i++)
+            {
+                model = *(models + i);
+                lightingShader.setMat4("model", model);
+                glBindVertexArray(cubeVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+            }
+        }
+        else
+        {
+            switch (iterations) {
+            case 0:
+                models = level0;
+                break;
+            case 1:
+                models = rlevel1;
+                break;
+            case 2:
+                models = rlevel2;
+                break;
+            case 3:
+                models = rlevel3;
+                break;
+            case 4:
+                models = rlevel4;
+                break;
+            case 5:
+                models = rlevel4;
+                break;
+            default:
+                models = level0;
+            }
+
+            //rendering the cubes
+            for (unsigned int i = 0; i < pow(8, iterations); i++)
+            {
+                model = *(models + i);
+                lightingShader.setMat4("model", model);
+                glBindVertexArray(cubeVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+            }
         }
 
         //swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -257,6 +306,10 @@ void processInput(GLFWwindow* window)
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+        reverse = true;
+    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
+        reverse = false;
 
 
 }
@@ -290,6 +343,33 @@ void generate(glm::mat4* previousLevel, glm::mat4* nextLevel, int iterationsLeve
                         temp = glm::translate(temp, glm::vec3(x * 1.0f, y * 1.0f, z * 1.0f));
                         *(nextLevel++) = temp;
                     }
+
+                }
+            }
+        }
+    }
+}
+
+void reverseGenerate(glm::mat4* previousLevel, glm::mat4* nextLevel, int iterationsLevel)
+{
+    for (int i = 0; i < pow(8, iterationsLevel - 1); i++)
+    {
+        glm::mat4 model = *(previousLevel + i);
+        for (int x = -1; x < +2; x++)
+        {
+            for (int y = -1; y < +2; y++)
+            {
+                for (int z = -1; z < +2; z++) {
+                    //discarding of the middle cubes
+                    int sum = abs(x) + abs(y) + abs(z);
+                    if (sum <= 1)
+                    {
+                        glm::mat4 temp = model;
+                        temp = glm::scale(temp, glm::vec3(0.33333f, 0.33333f, 0.333333f));
+                        temp = glm::translate(temp, glm::vec3(x * 1.0f, y * 1.0f, z * 1.0f));
+                        *(nextLevel++) = temp;
+                    }
+
                 }
             }
         }
